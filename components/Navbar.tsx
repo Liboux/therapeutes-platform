@@ -16,6 +16,9 @@ export default function Navbar() {
             <a href="/recherche" className="text-gray-700 hover:text-blue-600">
               Rechercher
             </a>
+            <a href="/connexion" className="text-gray-700 hover:text-blue-600">
+              Connexion
+            </a>
             <a href="/inscription" className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
               Inscription Thérapeute
             </a>
