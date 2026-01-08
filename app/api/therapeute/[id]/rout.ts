@@ -3,13 +3,60 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function GET(
+export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    const userId = parseInt(params.id);
+    const data = await request.json();
+    
+    console.log('User ID:', userId);
+    console.log('Données reçues:', data);
+
+    // Mettre à jour l'utilisateur
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        telephone: data.telephone,
+      }
+    });
+
+    // Mettre à jour le profil
+    if (data.profile?.description) {
+      await prisma.therapistProfile.updateMany({
+        where: { userId: userId },
+        data: {
+          description: data.profile.description,
+        }
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Profil mis à jour avec succès'
+    });
+    
+  } catch (error: any) {
+    console.error('Erreur PUT:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Erreur serveur' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await context.params;
+    const userId = parseInt(params.id);
+    
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: userId },
       include: { profile: true }
     });
 
@@ -22,16 +69,11 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        telephone: user.telephone,
-        subscriptionTier: user.subscriptionTier,
-      }
+      user: user
     });
-  } catch (error) {
-    console.error('Erreur:', error);
+    
+  } catch (error: any) {
+    console.error('Erreur GET:', error);
     return NextResponse.json(
       { success: false, message: 'Erreur serveur' },
       { status: 500 }
