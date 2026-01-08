@@ -24,3 +24,55 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* Texte plus visible dans les inputs */
+input,
+textarea,
+select {
+  color: #111827 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9CA3AF;
+}
+
+/* Style quand le champ est focus */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* Texte plus visible dans les formulaires */
+input,
+textarea,
+select {
+  color: #111827 !important;
+  font-weight: 500;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9CA3AF;
+  font-weight: 400;
+}
+
+/* Checkboxes plus visibles */
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #2563eb;
+}
+
+/* Labels des checkboxes plus foncés */
+input[type="checkbox"] + span {
+  color: #374151 !important;
+  font-weight: 500;
+}
