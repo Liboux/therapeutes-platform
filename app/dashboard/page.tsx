@@ -56,30 +56,44 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 const handleSaveProfile = async () => {
   try {
     const userId = localStorage.getItem('userId');
+    console.log('=== DÉBUT SAUVEGARDE ===');
+    console.log('User ID:', userId);
+    console.log('Téléphone:', formData.telephone);
+    console.log('Description:', formData.description);
+    
+    const bodyData = {
+      telephone: formData.telephone,
+      profileImage: profileImage,
+      profile: {
+        description: formData.description
+      }
+    };
+    
+    console.log('Body à envoyer:', bodyData);
+    console.log('URL:', `/api/therapeute/${userId}`);
     
     const response = await fetch(`/api/therapeute/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        telephone: formData.telephone,
-        profileImage: profileImage,
-        profile: {
-          description: formData.description
-        }
-      }),
+      body: JSON.stringify(bodyData),
     });
 
+    console.log('Status response:', response.status);
+    
     const result = await response.json();
+    console.log('Résultat:', result);
 
     if (result.success) {
       alert('✅ Profil mis à jour avec succès !');
+      // Rediriger vers la vue d'ensemble
+      setActiveSection('overview');
     } else {
       alert('❌ Erreur : ' + result.message);
     }
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur catch:', error);
     alert('❌ Erreur lors de la sauvegarde');
   }
 };

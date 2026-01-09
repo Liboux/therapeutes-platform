@@ -19,6 +19,7 @@ model User {
   password              String
   nom                   String
   telephone             String
+  role                  String    @default("therapist")
   subscriptionTier      String    @default("free")
   subscriptionStatus    String    @default("active")
   stripeCustomerId      String?
