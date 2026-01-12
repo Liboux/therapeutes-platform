@@ -110,9 +110,11 @@ export default function RecherchePage() {
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
-                          Voir profil
-                        </button>
+                        <a href={`/therapeute/${therapeute.id}`}>
+                          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm w-full">
+                            Voir profil
+                          </button>
+                        </a>
                         <a href={`tel:${therapeute.telephone}`}>
                           <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm w-full">
                             Appeler
