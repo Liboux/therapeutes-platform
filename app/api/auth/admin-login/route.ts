@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { cookies } from 'next/headers';
 
 const prisma = new PrismaClient();
 
@@ -10,12 +11,9 @@ export async function POST(request: Request) {
 
     console.log('Tentative de connexion admin:', email);
 
-    // Trouver l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email }
     });
-
-    console.log('User trouvé:', user ? 'Oui' : 'Non');
 
     if (!user) {
       return NextResponse.json(
@@ -24,8 +22,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Vérifier que c'est un admin
-    console.log('Role:', user.role);
     if (user.role !== 'admin') {
       return NextResponse.json(
         { success: false, message: 'Accès refusé - Pas un administrateur' },
@@ -33,28 +29,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // Vérifier le mot de passe
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    console.log('Mot de passe correct:', passwordMatch ? 'Oui' : 'Non');
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    if (!passwordMatch) {
+    if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, message: 'Email ou mot de passe incorrect' },
         { status: 401 }
       );
     }
 
+    // Créer un cookie sécurisé
+    const cookieStore = await cookies();
+    cookieStore.set('admin_token', `admin_${user.id}_${Date.now()}`, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 // 24 heures
+    });
+
+    console.log('Connexion admin réussie:', email);
+
     return NextResponse.json({
       success: true,
-      userId: user.id,
-      email: user.email,
-      nom: user.nom
+      message: 'Connexion réussie',
+      adminId: user.id,
+      adminEmail: user.email
     });
 
   } catch (error) {
-    console.error('Erreur connexion admin:', error);
+    console.error('Erreur lors de la connexion admin:', error);
     return NextResponse.json(
-      { success: false, message: 'Erreur serveur' },
+      { success: false, message: 'Erreur lors de la connexion' },
       { status: 500 }
     );
   }

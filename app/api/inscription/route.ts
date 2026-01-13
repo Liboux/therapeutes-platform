@@ -29,6 +29,8 @@ export async function POST(request: Request) {
             adresse: data.adresse,
             ville: data.ville,
             npa: data.npa,
+            latitude: data.latitude,        // NOUVEAU
+            longitude: data.longitude,
             tarifIndividuel: parseFloat(data.tarifIndividuel) || null,
             tarifCouple: parseFloat(data.tarifCouple) || null,
           }

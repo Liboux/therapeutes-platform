@@ -24,18 +24,29 @@ export default function AdminDashboardPage() {
   const [therapeutes, setTherapeuetes] = useState<Therapeute[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
+  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Vérifier si admin connecté
-    const adminId = localStorage.getItem('adminId');
-    if (!adminId) {
-      router.push('/admin/login');
-      return;
-    }
+    verifyAuth();
+  }, []);
 
-    // Charger les thérapeutes
-    loadTherapeuetes();
-  }, [router]);
+  const verifyAuth = async () => {
+    try {
+      const response = await fetch('/api/auth/verify-admin');
+      const data = await response.json();
+
+      if (!data.success) {
+        router.push('/admin/login');
+        return;
+      }
+
+      setAuthenticated(true);
+      loadTherapeuetes();
+    } catch (error) {
+      console.error('Erreur d\'authentification:', error);
+      router.push('/admin/login');
+    }
+  };
 
   const loadTherapeuetes = async () => {
     try {
@@ -96,13 +107,22 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminId');
-    localStorage.removeItem('adminEmail');
-    router.push('/admin/login');
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/admin-logout', {
+        method: 'POST'
+      });
+      
+      localStorage.removeItem('adminId');
+      localStorage.removeItem('adminEmail');
+      router.push('/admin/login');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      router.push('/admin/login');
+    }
   };
 
-  if (loading) {
+  if (loading || !authenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900"></div>
@@ -115,18 +135,17 @@ export default function AdminDashboardPage() {
   const rejectedTherapeuetes = therapeutes.filter(t => t.verificationStatus === 'rejected');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-6 shadow-lg">
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-gray-900 text-white py-6 shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">🔐 Administration</h1>
-              <p className="text-gray-300 mt-1">Gestion des thérapeutes</p>
+              <p className="text-gray-400 mt-1">Gestion des thérapeutes</p>
             </div>
             <button
               onClick={handleLogout}
-              className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition"
+              className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition font-semibold"
             >
               Déconnexion
             </button>
@@ -134,36 +153,34 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
             <p className="text-sm text-gray-600 mb-1">En attente</p>
             <p className="text-4xl font-bold text-orange-600">{pendingTherapeuetes.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
             <p className="text-sm text-gray-600 mb-1">Approuvés</p>
             <p className="text-4xl font-bold text-green-600">{approvedTherapeuetes.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <p className="text-sm text-gray-600 mb-1">Refusés</p>
             <p className="text-4xl font-bold text-red-600">{rejectedTherapeuetes.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
             <p className="text-sm text-gray-600 mb-1">Total</p>
             <p className="text-4xl font-bold text-blue-600">{therapeutes.length}</p>
           </div>
         </div>
 
-        {/* Onglets */}
         <div className="bg-white rounded-t-lg shadow-md">
           <div className="flex border-b">
             <button
               onClick={() => setActiveTab('pending')}
               className={`px-6 py-4 font-semibold transition ${
                 activeTab === 'pending'
-                  ? 'border-b-2 border-orange-600 text-orange-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-orange-600 text-orange-600 bg-orange-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               ⏳ En attente ({pendingTherapeuetes.length})
@@ -172,8 +189,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('approved')}
               className={`px-6 py-4 font-semibold transition ${
                 activeTab === 'approved'
-                  ? 'border-b-2 border-green-600 text-green-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-green-600 text-green-600 bg-green-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               ✓ Approuvés ({approvedTherapeuetes.length})
@@ -182,25 +199,24 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('rejected')}
               className={`px-6 py-4 font-semibold transition ${
                 activeTab === 'rejected'
-                  ? 'border-b-2 border-red-600 text-red-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-red-600 text-red-600 bg-red-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               ✗ Refusés ({rejectedTherapeuetes.length})
             </button>
           </div>
 
-          {/* Liste */}
-          <div className="p-6">
+          <div className="p-6 bg-gray-50">
             {activeTab === 'pending' && (
               <div className="space-y-4">
                 {pendingTherapeuetes.length === 0 ? (
-                  <p className="text-center text-gray-500 py-12">
+                  <p className="text-center text-gray-500 py-12 bg-white rounded-lg">
                     Aucun thérapeute en attente
                   </p>
                 ) : (
                   pendingTherapeuetes.map((therapeute) => (
-                    <div key={therapeute.id} className="border rounded-lg p-6 hover:shadow-md transition">
+                    <div key={therapeute.id} className="bg-white border-l-4 border-orange-500 rounded-lg p-6 hover:shadow-md transition">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="text-xl font-bold text-gray-900">{therapeute.nom}</h3>
@@ -247,29 +263,24 @@ export default function AdminDashboardPage() {
             {activeTab === 'approved' && (
               <div className="space-y-4">
                 {approvedTherapeuetes.map((therapeute) => (
-                  <div key={therapeute.id} className="border rounded-lg p-6 bg-green-50">
+                  <div key={therapeute.id} className="bg-white border-l-4 border-green-500 rounded-lg p-6">
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
+                      <div>
                         <h3 className="text-xl font-bold text-gray-900">{therapeute.nom}</h3>
                         <p className="text-gray-600">{therapeute.email}</p>
-                        <p className="text-gray-600">{therapeute.telephone}</p>
-                        
                         {therapeute.profile && (
-                          <div className="mt-2">
-                            <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                              {therapeute.profile.type}
-                            </span>
-                            <span className={`inline-block px-3 py-1 rounded-full text-sm ml-2 ${
-                              therapeute.subscriptionTier === 'premium'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {therapeute.subscriptionTier === 'premium' ? '⭐ Premium' : '🆓 Gratuit'}
-                            </span>
-                          </div>
+                          <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm mt-2">
+                            {therapeute.profile.type}
+                          </span>
                         )}
+                        <span className={`inline-block px-3 py-1 rounded-full text-sm ml-2 mt-2 ${
+                          therapeute.subscriptionTier === 'premium'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {therapeute.subscriptionTier === 'premium' ? '⭐ Premium' : '🆓 Gratuit'}
+                        </span>
                       </div>
-
                       <button
                         onClick={() => router.push(`/admin/therapeutes/${therapeute.id}/edit`)}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold"
@@ -285,7 +296,7 @@ export default function AdminDashboardPage() {
             {activeTab === 'rejected' && (
               <div className="space-y-4">
                 {rejectedTherapeuetes.map((therapeute) => (
-                  <div key={therapeute.id} className="border rounded-lg p-6 bg-red-50">
+                  <div key={therapeute.id} className="bg-white border-l-4 border-red-500 rounded-lg p-6">
                     <h3 className="text-xl font-bold text-gray-900">{therapeute.nom}</h3>
                     <p className="text-gray-600">{therapeute.email}</p>
                   </div>

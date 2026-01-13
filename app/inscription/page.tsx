@@ -1,10 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
+import PhoneInput from '@/components/PhoneInput';
+
 
 export default function InscriptionPage() {
+  const router = useRouter();
   const [etape, setEtape] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,6 +28,8 @@ export default function InscriptionPage() {
     adresse: '',
     ville: '',
     npa: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     tarifIndividuel: '',
     tarifCouple: '',
     abonnement: 'gratuit'
@@ -46,10 +57,106 @@ export default function InscriptionPage() {
     }
   };
 
-  const etapeSuivante = () => setEtape(etape + 1);
+  const handleAddressSelect = (addressData: {
+    adresse: string;
+    ville: string;
+    npa: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setFormData({
+      ...formData,
+      adresse: addressData.adresse,
+      ville: addressData.ville,
+      npa: addressData.npa,
+      latitude: addressData.latitude,
+      longitude: addressData.longitude
+    });
+  };
+
+  const validateStep = (step: number): boolean => {
+    setError('');
+
+    if (step === 1) {
+      if (!formData.email || !formData.password || !formData.nom || !formData.telephone) {
+        setError('Tous les champs marqués * sont obligatoires');
+        return false;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError('Email invalide');
+        return false;
+      }
+
+      if (formData.password.length < 8) {
+        setError('Le mot de passe doit contenir au moins 8 caractères');
+        return false;
+      }
+
+      // Validation téléphone international (commence par + suivi de chiffres et espaces)
+      const phoneRegex = /^\+\d+\s[\d\s]+$/;
+      if (!phoneRegex.test(formData.telephone) || formData.telephone.replace(/\D/g, '').length < 8) {
+        setError('Format de téléphone invalide');
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      if (!formData.type || !formData.numeroRCC) {
+        setError('Tous les champs marqués * sont obligatoires');
+        return false;
+      }
+
+      if (formData.specialisations.length === 0) {
+        setError('Sélectionnez au moins une spécialisation');
+        return false;
+      }
+
+      if (formData.langues.length === 0) {
+        setError('Sélectionnez au moins une langue');
+        return false;
+      }
+
+      const rccRegex = /^\d{13}$/;
+      if (!rccRegex.test(formData.numeroRCC.replace(/\s/g, ''))) {
+        setError('Le numéro RCC/GLN doit contenir exactement 13 chiffres');
+        return false;
+      }
+    }
+
+    if (step === 3) {
+      if (!formData.description || !formData.adresse || !formData.ville || !formData.npa) {
+        setError('Tous les champs marqués * sont obligatoires');
+        return false;
+      }
+
+      const npaRegex = /^\d{4}$/;
+      if (!npaRegex.test(formData.npa)) {
+        setError('Le NPA doit contenir 4 chiffres');
+        return false;
+      }
+
+      // Ne plus forcer l'autocomplétion GPS - permettre saisie manuelle
+      // On garde quand même les coordonnées si elles existent
+    }
+
+    return true;
+  };
+
+  const etapeSuivante = () => {
+    if (validateStep(etape)) {
+      setEtape(etape + 1);
+    }
+  };
+
   const etapePrecedente = () => setEtape(etape - 1);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
       const response = await fetch('/api/inscription', {
         method: 'POST',
@@ -58,20 +165,41 @@ export default function InscriptionPage() {
         },
         body: JSON.stringify(formData),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        alert('✅ Inscription réussie !\n\n📋 Votre profil sera vérifié par notre équipe sous 24-48h.\nVous recevrez un email de confirmation une fois validé.');
-        window.location.href = '/';
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/connexion');
+        }, 3000);
       } else {
-        alert('❌ Erreur : ' + result.message);
+        setError(result.message || 'Une erreur est survenue');
       }
     } catch (error) {
       console.error('Erreur:', error);
-      alert('❌ Erreur lors de l\'inscription');
+      setError('Erreur lors de l\'inscription');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-md p-8 max-w-md text-center">
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Inscription réussie !</h2>
+            <p className="text-gray-600">
+              Votre profil sera vérifié sous 24-48h. Vous recevrez un email de confirmation.
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -97,56 +225,71 @@ export default function InscriptionPage() {
               Inscription Thérapeute
             </h1>
 
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+                {error}
+              </div>
+            )}
+
             {etape === 1 && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Créez votre compte</h2>
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email * <span className="text-xs text-gray-500">(exemple@mail.com)</span>
+                    </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="votre@email.com"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mot de passe * <span className="text-xs text-gray-500">(min. 8 caractères)</span>
+                    </label>
                     <input
                       type="password"
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
+                      required
+                      minLength={8}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="••••••••"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nom complet *
+                    </label>
                     <input
                       type="text"
                       name="nom"
                       value={formData.nom}
                       onChange={handleChange}
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Dr. Sophie Martin"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                    <input
-                      type="tel"
-                      name="telephone"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Téléphone *
+                    </label>
+                    <PhoneInput
                       value={formData.telephone}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="+41 21 123 45 67"
+                      onChange={(value) => setFormData({...formData, telephone: value})}
+                      required
                     />
                   </div>
                 </div>
@@ -171,6 +314,7 @@ export default function InscriptionPage() {
                       name="type"
                       value={formData.type}
                       onChange={handleChange}
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Sélectionnez...</option>
@@ -183,17 +327,21 @@ export default function InscriptionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro RCC / GLN *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Numéro RCC / GLN * <span className="text-xs text-gray-500">(13 chiffres)</span>
+                    </label>
                     <input
                       type="text"
                       name="numeroRCC"
                       value={formData.numeroRCC}
                       onChange={handleChange}
+                      required
+                      maxLength={13}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="7601234567890"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Numéro d'identification professionnel suisse (RCC ou GLN)
+                      Numéro d&apos;identification professionnel suisse (13 chiffres)
                     </p>
                   </div>
 
@@ -212,6 +360,9 @@ export default function InscriptionPage() {
                         </label>
                       ))}
                     </div>
+                    {formData.specialisations.length === 0 && (
+                      <p className="text-xs text-red-600 mt-1">Sélectionnez au moins une spécialisation</p>
+                    )}
                   </div>
 
                   <div>
@@ -229,10 +380,13 @@ export default function InscriptionPage() {
                         </label>
                       ))}
                     </div>
+                    {formData.langues.length === 0 && (
+                      <p className="text-xs text-red-600 mt-1">Sélectionnez au moins une langue</p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Années d&apos;expérience</label>
                     <input
                       type="number"
                       name="experience"
@@ -266,6 +420,7 @@ export default function InscriptionPage() {
                       name="description"
                       value={formData.description}
                       onChange={handleChange}
+                      required
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Présentez votre approche thérapeutique..."
@@ -273,15 +428,17 @@ export default function InscriptionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse du cabinet *</label>
-                    <input
-                      type="text"
-                      name="adresse"
-                      value={formData.adresse}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Rue de la Gare 15"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Adresse du cabinet *
+                      <span className="text-xs text-gray-500 ml-2">(Tapez pour voir les suggestions)</span>
+                    </label>
+                    <AddressAutocomplete 
+                      onAddressSelect={handleAddressSelect}
+                      defaultValue={formData.adresse}
                     />
+                    <p className="text-xs text-blue-600 mt-1">
+                      💡 Sélectionnez une adresse dans la liste pour auto-remplir, ou saisissez manuellement ci-dessous
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -292,6 +449,7 @@ export default function InscriptionPage() {
                         name="npa"
                         value={formData.npa}
                         onChange={handleChange}
+                        maxLength={4}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="1003"
                       />
@@ -405,11 +563,12 @@ export default function InscriptionPage() {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    className={`flex-1 py-3 rounded-lg font-semibold text-white ${
+                    disabled={loading}
+                    className={`flex-1 py-3 rounded-lg font-semibold text-white disabled:opacity-50 ${
                       formData.abonnement === 'premium' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
                     }`}
                   >
-                    {formData.abonnement === 'premium' ? 'Finaliser et payer' : 'Créer mon profil gratuit'}
+                    {loading ? 'Inscription...' : (formData.abonnement === 'premium' ? 'Finaliser et payer' : 'Créer mon profil gratuit')}
                   </button>
                 </div>
               </div>
